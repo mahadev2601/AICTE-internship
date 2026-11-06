@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fitness Buddy — AI Health Coach</title>
+<style>
+/* ── Reset ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117; --bg2:#161b27; --bg3:#1e2438;
+  --accent:#7c3aed; --accent2:#06b6d4; --accent3:#10b981;
+  --warn:#f59e0b; --text:#e2e8f0; --muted:#94a3b8;
+  --glass:rgba(255,255,255,0.06); --glass-bd:rgba(255,255,255,0.12);
+  --neu-l:rgba(255,255,255,0.07); --neu-d:rgba(0,0,0,0.45);
+  --shadow:0 8px 32px rgba(0,0,0,0.5); --r:18px;
+}
+html,body{height:100%;font-family:'Inter','Segoe UI',system-ui,sans-serif}
+body{background:var(--bg);color:var(--text);overflow:hidden;display:flex;flex-direction:column}
+
+/* ── Animated orbs ─────────────────────────────────── */
+.orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.16;animation:drift 18s ease-in-out infinite alternate}
+.o1{width:600px;height:600px;background:var(--accent);top:-200px;left:-150px}
+.o2{width:500px;height:500px;background:var(--accent2);bottom:-150px;right:-100px;animation-delay:-6s}
+.o3{width:350px;height:350px;background:var(--accent3);top:40%;left:38%;animation-delay:-12s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,30px) scale(1.08)}}
+
+/* ── App shell ─────────────────────────────────────── */
+.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;max-width:880px;margin:0 auto;padding:16px 14px 0}
+
+/* ── Glassmorphism header ───────────────────────────── */
+header{
+  background:var(--glass);backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid var(--glass-bd);border-radius:var(--r);
+  padding:12px 20px;display:flex;align-items:center;gap:12px;
+  box-shadow:var(--shadow),inset 0 1px 0 var(--neu-l);margin-bottom:12px;flex-shrink:0
+}
+.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 14px rgba(124,58,237,.5),inset 0 1px 0 var(--neu-l)}
+.htext h1{font-size:1.15rem;font-weight:700;letter-spacing:-.3px}
+.htext p{font-size:.75rem;color:var(--muted);margin-top:1px}
+.status{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:.73rem;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:#64748b;transition:background .4s}
+.dot.on{background:var(--accent3);box-shadow:0 0 8px var(--accent3);animation:pulse 2s infinite}
+.dot.off{background:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.edit-profile-btn{margin-left:10px;padding:5px 12px;border:1px solid var(--glass-bd);border-radius:50px;background:var(--glass);color:var(--muted);font-size:.72rem;cursor:pointer;transition:all .2s}
+.edit-profile-btn:hover{color:#fff;border-color:var(--accent)}
+
+/* ── Quick actions (neumorphism pills) ──────────────── */
+.qa{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;flex-shrink:0}
+.qb{padding:6px 14px;border:none;border-radius:50px;cursor:pointer;font-size:.76rem;font-weight:600;color:var(--text);transition:all .2s;background:var(--bg2);box-shadow:4px 4px 10px var(--neu-d),-2px -2px 6px var(--neu-l),inset 0 1px 0 rgba(255,255,255,.04)}
+.qb:hover{color:#fff;box-shadow:2px 2px 5px var(--neu-d),-1px -1px 3px var(--neu-l),inset 0 0 0 1px var(--accent);transform:translateY(-1px)}
+
+/* ── Chat window ───────────────────────────────────── */
+.chat{flex:1;overflow-y:auto;background:var(--glass);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--glass-bd);border-radius:var(--r);padding:18px 16px;box-shadow:var(--shadow),inset 0 1px 0 var(--neu-l);scroll-behavior:smooth;margin-bottom:12px}
+.chat::-webkit-scrollbar{width:5px}
+.chat::-webkit-scrollbar-thumb{background:var(--glass-bd);border-radius:3px}
+
+/* ── Messages ─────────────────────────────────────── */
+.msg{display:flex;gap:10px;margin-bottom:16px;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+.av{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.msg.user .av{background:linear-gradient(135deg,var(--accent),#9333ea)}
+.msg.bot  .av{background:linear-gradient(135deg,var(--accent2),var(--accent3))}
+.bubble{max-width:78%;padding:11px 15px;border-radius:16px;font-size:.87rem;line-height:1.65;word-break:break-word;white-space:pre-wrap}
+.msg.user .bubble{background:linear-gradient(135deg,var(--accent),#9333ea);color:#fff;border-bottom-right-radius:4px;box-shadow:0 4px 14px rgba(124,58,237,.35)}
+.msg.bot  .bubble{background:var(--glass);border:1px solid var(--glass-bd);color:var(--text);border-bottom-left-radius:4px;box-shadow:4px 4px 12px var(--neu-d),-1px -1px 4px var(--neu-l)}
+.label{font-size:.68rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:5px;opacity:.6}
+
+/* ── Typing indicator ─────────────────────────────── */
+.typing{display:none}
+.typing.show{display:flex}
+.dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 2px;animation:bounce 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+
+/* ── Onboarding overlay ────────────────────────────── */
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(10,12,20,.85);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:16px}
+.overlay.hidden{display:none}
+.wizard{background:var(--bg2);border:1px solid var(--glass-bd);border-radius:22px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.7),inset 0 1px 0 var(--neu-l);animation:popIn .35s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.wizard::-webkit-scrollbar{width:4px}
+.wizard::-webkit-scrollbar-thumb{background:var(--glass-bd);border-radius:2px}
+.wiz-header{padding:24px 24px 0;text-align:center}
+.wiz-header .wiz-icon{font-size:42px;margin-bottom:10px}
+.wiz-header h2{font-size:1.3rem;font-weight:700;margin-bottom:6px}
+.wiz-header p{color:var(--muted);font-size:.83rem;line-height:1.5}
+.wiz-body{padding:20px 24px}
+.wiz-step{display:none}
+.wiz-step.active{display:block;animation:fadeUp .25s ease}
+.step-title{font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--accent2);margin-bottom:14px}
+.field-group{margin-bottom:14px}
+.field-group label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:5px}
+.field-group input,.field-group select,.field-group textarea{width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--glass-bd);background:rgba(255,255,255,.04);color:var(--text);font-size:.84rem;outline:none;box-shadow:inset 2px 2px 6px var(--neu-d),inset -1px -1px 3px var(--neu-l);transition:border-color .2s}
+.field-group input:focus,.field-group select:focus{border-color:var(--accent)}
+.field-group select option{background:#1e2438}
+.field-row{display:flex;gap:10px}
+.field-row .field-group{flex:1}
+.radio-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.radio-opt{padding:9px 12px;border-radius:12px;border:1px solid var(--glass-bd);cursor:pointer;font-size:.8rem;text-align:center;transition:all .2s;background:var(--glass);box-shadow:2px 2px 6px var(--neu-d),-1px -1px 3px var(--neu-l)}
+.radio-opt:hover{border-color:var(--accent2);color:#fff}
+.radio-opt.selected{border-color:var(--accent);background:rgba(124,58,237,.15);color:#fff;box-shadow:0 0 12px rgba(124,58,237,.3)}
+.progress-bar{height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-bottom:18px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .4s ease}
+.wiz-footer{display:flex;justify-content:space-between;align-items:center;padding:0 24px 22px}
+.wiz-step-count{font-size:.75rem;color:var(--muted)}
+.wiz-btns{display:flex;gap:10px}
+.btn-back{padding:9px 20px;border:1px solid var(--glass-bd);border-radius:50px;background:transparent;color:var(--muted);font-size:.82rem;cursor:pointer;transition:all .2s}
+.btn-back:hover{border-color:var(--accent);color:#fff}
+.btn-next{padding:9px 22px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:.82rem;font-weight:600;cursor:pointer;box-shadow:0 3px 12px rgba(124,58,237,.4);transition:opacity .2s}
+.btn-next:hover{opacity:.88}
+.btn-next:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Input bar (neumorphism) ────────────────────────── */
+.input-bar{display:flex;gap:9px;align-items:flex-end;padding-bottom:18px;flex-shrink:0}
+.input-wrap{flex:1;display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:50px;padding:9px 16px;box-shadow:6px 6px 14px var(--neu-d),-3px -3px 8px var(--neu-l),inset 0 1px 0 rgba(255,255,255,.04);border:1px solid transparent;transition:border-color .2s}
+.input-wrap:focus-within{border-color:var(--accent)}
+#user-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:.91rem;resize:none;max-height:120px;overflow-y:auto;line-height:1.5}
+#user-input::placeholder{color:var(--muted)}
+.send-btn{width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(124,58,237,.5);transition:transform .15s,box-shadow .15s;flex-shrink:0}
+.send-btn:hover{transform:scale(1.07);box-shadow:0 6px 20px rgba(124,58,237,.6)}
+.send-btn:active{transform:scale(.96)}
+.send-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ── Markdown content inside bot bubbles ────────────── */
+.md-content{font-size:.86rem;line-height:1.7}
+.md-content h3{font-size:.9rem;font-weight:700;color:var(--accent2);margin:12px 0 5px;letter-spacing:.3px}
+.md-content h4{font-size:.84rem;font-weight:600;color:var(--accent3);margin:10px 0 4px}
+.md-content ul{margin:5px 0 5px 16px;padding:0}
+.md-content li{margin-bottom:3px;line-height:1.55}
+.md-content strong{color:#fff;font-weight:600}
+.md-content em{font-style:italic;color:var(--muted)}
+.md-content blockquote{border-left:3px solid var(--accent);background:rgba(124,58,237,.12);border-radius:0 8px 8px 0;padding:8px 14px;margin:8px 0;font-style:italic;color:#c4b5fd}
+.md-content p{margin:4px 0}
+
+/* ── PDF download button ────────────────────────────── */
+.pdf-btn{margin-top:10px;padding:6px 14px;border:1px solid var(--accent);border-radius:50px;background:transparent;color:var(--accent2);font-size:.73rem;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
+.pdf-btn:hover{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(124,58,237,.4)}
+
+/* ── Image upload UI ────────────────────────────────── */
+.img-btn{width:38px;height:38px;border-radius:50%;border:none;background:var(--bg2);color:var(--muted);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:3px 3px 8px var(--neu-d),-2px -2px 5px var(--neu-l);transition:all .2s;flex-shrink:0}
+.img-btn:hover{color:var(--accent2)}
+.img-panel{display:none;background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;flex-shrink:0;animation:fadeUp .25s ease}
+.img-panel.open{display:block}
+.img-panel h4{font-size:.75rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:10px}
+.img-drop{border:2px dashed var(--glass-bd);border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative}
+.img-drop:hover,.img-drop.drag{border-color:var(--accent)}
+.img-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.img-drop .di{font-size:28px;margin-bottom:6px}
+.img-drop p{font-size:.78rem;color:var(--muted)}
+.img-preview{margin-top:10px;display:none;align-items:center;gap:10px}
+.img-preview.show{display:flex}
+.img-preview img{width:60px;height:60px;border-radius:10px;object-fit:cover;border:1px solid var(--glass-bd)}
+.img-preview span{font-size:.78rem;color:var(--muted);flex:1}
+.img-preview button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
+.img-preview button:hover{color:#f87171}
+.img-meta{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.img-meta select,.img-meta input{flex:1;min-width:120px;padding:7px 12px;border-radius:10px;border:1px solid var(--glass-bd);background:rgba(255,255,255,.04);color:var(--text);font-size:.8rem;outline:none;box-shadow:inset 2px 2px 5px var(--neu-d)}
+.img-meta input::placeholder{color:var(--muted)}
+.img-meta select option{background:#1e2438}
+.send-img-btn{padding:8px 18px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;margin-top:10px;box-shadow:0 3px 10px rgba(124,58,237,.4);transition:opacity .2s}
+.send-img-btn:hover{opacity:.88}
+.send-img-btn:disabled{opacity:.5;cursor:not-allowed}
+.msg-img{max-width:200px;border-radius:10px;margin-bottom:6px;display:block;border:1px solid var(--glass-bd)}
+
+/* ── Welcome state ─────────────────────────────────── */
+.welcome{text-align:center;padding:28px 10px}
+.welcome .wi{font-size:50px;margin-bottom:12px}
+.welcome h2{font-size:1.35rem;font-weight:700;margin-bottom:7px}
+.welcome p{color:var(--muted);font-size:.86rem;line-height:1.6;max-width:380px;margin:0 auto}
+
+/* ── Responsive ────────────────────────────────────── */
+@media(max-width:600px){
+  .app{padding:10px 9px 0}
+  .qa{gap:5px}
+  .qb{font-size:.7rem;padding:5px 10px}
+  .radio-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+
+<!-- ── Onboarding Wizard ─────────────────────────────────────────────── -->
+<div class="overlay" id="overlay">
+<div class="wizard">
+  <div class="wiz-header">
+    <div class="wiz-icon">💪</div>
+    <h2>Welcome to Fitness Buddy</h2>
+    <p>Let's personalise your AI health coach in 60 seconds. Your answers shape every workout, meal, and tip you receive.</p>
+  </div>
+  <div class="wiz-body">
+    <div class="progress-bar"><div class="progress-fill" id="prog" style="width:14%"></div></div>
+
+    <!-- Step 1: Basic info -->
+    <div class="wiz-step active" id="step1">
+      <div class="step-title">Step 1 of 7 — About You</div>
+      <div class="field-row">
+        <div class="field-group"><label>Your name</label><input id="w-name" type="text" placeholder="e.g. Alex" /></div>
+        <div class="field-group"><label>Age</label><input id="w-age" type="number" placeholder="e.g. 25" min="10" max="100"/></div>
+      </div>
+      <div class="field-group">
+        <label>Gender</label>
+        <div class="radio-grid">
+          <div class="radio-opt" data-group="gender" data-val="male">Male</div>
+          <div class="radio-opt" data-group="gender" data-val="female">Female</div>
+          <div class="radio-opt" data-group="gender" data-val="non-binary">Non-binary</div>
+          <div class="radio-opt selected" data-group="gender" data-val="prefer not to say">Prefer not to say</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Body (optional) -->
+    <div class="wiz-step" id="step2">
+      <div class="step-title">Step 2 of 7 — Body Stats (optional)</div>
+      <div class="field-row">
+        <div class="field-group"><label>Height</label><input id="w-height" type="text" placeholder="e.g. 5'8&quot; or 173cm"/></div>
+        <div class="field-group"><label>Weight</label><input id="w-weight" type="text" placeholder="e.g. 70kg"/></div>
+      </div>
+      <p style="font-size:.75rem;color:var(--muted);margin-top:6px">This is optional and used only to personalise AI advice. No calculations are performed.</p>
+    </div>
+
+    <!-- Step 3: Goal -->
+    <div class="wiz-step" id="step3">
+      <div class="step-title">Step 3 of 7 — Your Goal</div>
+      <div class="field-group">
+        <label>Primary fitness goal</label>
+        <div class="radio-grid">
+          <div class="radio-opt selected" data-group="goal" data-val="general_health">General Health</div>
+          <div class="radio-opt" data-group="goal" data-val="weight_loss">Weight Loss</div>
+          <div class="radio-opt" data-group="goal" data-val="muscle_gain">Muscle Gain</div>
+          <div class="radio-opt" data-group="goal" data-val="endurance">Endurance</div>
+        </div>
+      </div>
+      <div class="field-group" style="margin-top:14px">
+        <label>Current fitness level</label>
+        <div class="radio-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="radio-opt selected" data-group="level" data-val="beginner">Beginner</div>
+          <div class="radio-opt" data-group="level" data-val="intermediate">Intermediate</div>
+          <div class="radio-opt" data-group="level" data-val="advanced">Advanced</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Schedule -->
+    <div class="wiz-step" id="step4">
+      <div class="step-title">Step 4 of 7 — Your Schedule</div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Days per week you can work out</label>
+          <select id="w-days">
+            <option value="2">2 days</option>
+            <option value="3" selected>3 days</option>
+            <option value="4">4 days</option>
+            <option value="5">5 days</option>
+            <option value="6">6 days</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Minutes per session</label>
+          <select id="w-time">
+            <option value="20">20 min</option>
+            <option value="30" selected>30 min</option>
+            <option value="45">45 min</option>
+            <option value="60">60 min</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Equipment available at home (optional)</label>
+        <input id="w-equipment" type="text" placeholder="e.g. dumbbells, resistance bands — or leave blank for bodyweight"/>
+      </div>
+    </div>
+
+    <!-- Step 5: Diet & Health -->
+    <div class="wiz-step" id="step5">
+      <div class="step-title">Step 5 of 7 — Diet & Health</div>
+      <div class="field-group">
+        <label>Dietary preference</label>
+        <div class="radio-grid">
+          <div class="radio-opt selected" data-group="dietary_pref" data-val="no preference">No preference</div>
+          <div class="radio-opt" data-group="dietary_pref" data-val="vegetarian">Vegetarian</div>
+          <div class="radio-opt" data-group="dietary_pref" data-val="vegan">Vegan</div>
+          <div class="radio-opt" data-group="dietary_pref" data-val="gluten-free">Gluten-free</div>
+        </div>
+      </div>
+      <div class="field-group" style="margin-top:14px">
+        <label>Any injuries or health conditions? (optional)</label>
+        <input id="w-health" type="text" placeholder="e.g. bad knees, lower back pain — or leave blank"/>
+      </div>
+    </div>
+
+    <!-- Step 6: Lifestyle -->
+    <div class="wiz-step" id="step6">
+      <div class="step-title">Step 6 of 7 — Lifestyle</div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Average sleep hours per night</label>
+          <select id="w-sleep">
+            <option value="5">5 hrs</option>
+            <option value="6">6 hrs</option>
+            <option value="7" selected>7 hrs</option>
+            <option value="8">8 hrs</option>
+            <option value="9">9+ hrs</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Stress level this week (1=low)</label>
+          <select id="w-stress">
+            <option value="1">1 — Very low</option>
+            <option value="3">3 — Low</option>
+            <option value="5" selected>5 — Moderate</option>
+            <option value="7">7 — High</option>
+            <option value="10">10 — Very high</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 7: Motivation style -->
+    <div class="wiz-step" id="step7">
+      <div class="step-title">Step 7 of 7 — Motivation Style</div>
+      <div class="field-group">
+        <label>What keeps you motivated?</label>
+        <div class="radio-grid">
+          <div class="radio-opt selected" data-group="motivation_style" data-val="encouragement">Encouragement</div>
+          <div class="radio-opt" data-group="motivation_style" data-val="challenge">Challenge me</div>
+          <div class="radio-opt" data-group="motivation_style" data-val="data-driven">Data & progress</div>
+          <div class="radio-opt" data-group="motivation_style" data-val="community">Community feel</div>
+        </div>
+      </div>
+      <p style="font-size:.76rem;color:var(--muted);margin-top:12px">All set! Your AI coach will now tailor every response to your unique profile.</p>
+    </div>
+  </div>
+
+  <div class="wiz-footer">
+    <span class="wiz-step-count" id="step-count">Step 1 of 7</span>
+    <div class="wiz-btns">
+      <button class="btn-back" id="btn-back" onclick="wizBack()" style="display:none">Back</button>
+      <button class="btn-next" id="btn-next" onclick="wizNext()">Continue &rarr;</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ── Main App ─────────────────────────────────────────────────────── -->
+<div class="app">
+  <header>
+    <div class="logo">💪</div>
+    <div class="htext">
+      <h1>Fitness Buddy</h1>
+      <p>Powered by IBM Granite AI</p>
+    </div>
+    <div class="status">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Connecting...</span>
+    </div>
+    <button class="edit-profile-btn" onclick="openWizard()">Edit Profile</button>
+  </header>
+
+  <div class="qa">
+    <button class="qb" onclick="quickSend('Show me my workout plan')">🏋️ Workout</button>
+    <button class="qb" onclick="quickSend('Show me a meal plan')">🥗 Meal Plan</button>
+    <button class="qb" onclick="quickSend('Give me some motivation')">🌟 Motivate</button>
+    <button class="qb" onclick="quickSend('Give me habit building tips')">📅 Habits</button>
+    <button class="qb" onclick="quickSend('How much water should I drink daily?')">💧 Hydration</button>
+    <button class="qb" onclick="quickSend('How many rest days do I need?')">😴 Recovery</button>
+  </div>
+
+  <div class="chat" id="chat">
+    <div class="welcome" id="wc">
+      <div class="wi">🏃</div>
+      <h2>Hey there, Champion!</h2>
+      <p>Complete the quick setup to get a fully personalised plan built around your goals, schedule, and lifestyle.</p>
+    </div>
+    <div class="msg bot typing" id="typing">
+      <div class="av">🤖</div>
+      <div class="bubble"><div class="dots"><span></span><span></span><span></span></div></div>
+    </div>
+  </div>
+
+  <!-- Image upload panel -->
+  <div class="img-panel" id="img-panel">
+    <h4>📸 Analyse an Image</h4>
+    <div class="img-drop" id="img-drop"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="img-file" accept="image/*" onchange="handleFileSelect(event)" />
+      <div class="di">🖼️</div>
+      <p>Click to upload or drag & drop<br><span style="font-size:.7rem">JPG, PNG, WEBP, GIF · max 10 MB</span></p>
+    </div>
+    <div class="img-preview" id="img-preview">
+      <img id="img-thumb" src="" alt="preview" />
+      <span id="img-name">image.jpg</span>
+      <button onclick="clearImage()" title="Remove">✕</button>
+    </div>
+    <div class="img-meta">
+      <select id="img-type">
+        <option value="food">🍽️ Food / Meal</option>
+        <option value="posture">🏋️ Exercise Posture</option>
+        <option value="body">💪 Body / Progress Photo</option>
+        <option value="label">🏷️ Nutrition Label</option>
+        <option value="other">❓ Other (fitness related)</option>
+      </select>
+      <input id="img-caption" type="text" placeholder="Describe or ask about this image (optional)" />
+    </div>
+    <button class="send-img-btn" id="send-img-btn" onclick="sendImage()">Analyse Image →</button>
+  </div>
+
+  <div class="input-bar">
+    <button class="img-btn" id="img-toggle" title="Upload image" onclick="toggleImgPanel()">📷</button>
+    <div class="input-wrap">
+      <textarea id="user-input" rows="1" placeholder="Ask me about workouts, meals, motivation..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    </div>
+    <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send">&#10148;</button>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+let profile = {
+  name:"Champion", age:"", gender:"prefer not to say",
+  height:"", weight:"", goal:"general_health", level:"beginner",
+  days_per_week:"3", time_per_session:"30", equipment:"",
+  dietary_pref:"no preference", health_notes:"", sleep_hours:"7",
+  stress_level:"5", motivation_style:"encouragement"
+};
+let wizStep = 1;
+const WIZ_TOTAL = 7;
+let busy = false;
+
+// ── Onboarding wizard ──────────────────────────────────────────────────
+function wizNext() {
+  if (wizStep === WIZ_TOTAL) { submitWizard(); return; }
+  collectWizStep(wizStep);
+  wizStep++;
+  showWizStep(wizStep);
+}
+function wizBack() {
+  if (wizStep <= 1) return;
+  wizStep--;
+  showWizStep(wizStep);
+}
+function showWizStep(s) {
+  document.querySelectorAll(".wiz-step").forEach(el => el.classList.remove("active"));
+  document.getElementById("step" + s).classList.add("active");
+  document.getElementById("prog").style.width = (s / WIZ_TOTAL * 100) + "%";
+  document.getElementById("step-count").textContent = "Step " + s + " of " + WIZ_TOTAL;
+  document.getElementById("btn-back").style.display = s > 1 ? "inline-block" : "none";
+  document.getElementById("btn-next").textContent = s === WIZ_TOTAL ? "Start my plan 🚀" : "Continue \u2192";
+}
+function collectWizStep(s) {
+  if (s===1) {
+    profile.name   = document.getElementById("w-name").value.trim() || "Champion";
+    profile.age    = document.getElementById("w-age").value.trim();
+    profile.gender = getRadio("gender");
+  } else if (s===2) {
+    profile.height = document.getElementById("w-height").value.trim();
+    profile.weight = document.getElementById("w-weight").value.trim();
+  } else if (s===3) {
+    profile.goal  = getRadio("goal");
+    profile.level = getRadio("level");
+  } else if (s===4) {
+    profile.days_per_week    = document.getElementById("w-days").value;
+    profile.time_per_session = document.getElementById("w-time").value;
+    profile.equipment        = document.getElementById("w-equipment").value.trim();
+  } else if (s===5) {
+    profile.dietary_pref = getRadio("dietary_pref");
+    profile.health_notes = document.getElementById("w-health").value.trim();
+  } else if (s===6) {
+    profile.sleep_hours  = document.getElementById("w-sleep").value;
+    profile.stress_level = document.getElementById("w-stress").value;
+  } else if (s===7) {
+    profile.motivation_style = getRadio("motivation_style");
+  }
+}
+function getRadio(group) {
+  const sel = document.querySelector(`.radio-opt.selected[data-group="${group}"]`);
+  return sel ? sel.dataset.val : "";
+}
+document.addEventListener("click", e => {
+  if (e.target.classList.contains("radio-opt")) {
+    const g = e.target.dataset.group;
+    document.querySelectorAll(`.radio-opt[data-group="${g}"]`).forEach(el => el.classList.remove("selected"));
+    e.target.classList.add("selected");
+  }
+});
+function submitWizard() {
+  collectWizStep(WIZ_TOTAL);
+
+  // Save name to localStorage for auto-login next visit
+  localStorage.setItem("fb_user", profile.name.trim());
+
+  // Close immediately — never block the user waiting for the AI
+  closeWizard();
+  const wc = document.getElementById("wc");
+  if (wc) wc.remove();
+
+  // Show instant local welcome right away
+  const instantMsg = `Profile saved! Welcome, ${profile.name}! Your personalised ${profile.goal.replace(/_/g," ")} plan is ready. Ask me anything — try the quick buttons above or type your question below.`;
+  addMessage("bot", instantMsg, "welcome");
+
+  // Then fire the AI personalised welcome in the background (non-blocking)
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000); // 12s max
+  fetch("/api/onboard", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(profile),
+    signal: controller.signal
+  })
+  .then(r => r.json())
+  .then(data => {
+    clearTimeout(timeout);
+    if (data.welcome && data.welcome !== instantMsg) {
+      addMessage("bot", data.welcome, "welcome");
+    }
+  })
+  .catch(() => clearTimeout(timeout));
+}
+function closeWizard() { document.getElementById("overlay").classList.add("hidden"); }
+function openWizard() {
+  // Pre-fill wizard fields with current profile so user sees their saved values
+  document.getElementById("w-name").value   = profile.name   || "";
+  document.getElementById("w-age").value    = profile.age    || "";
+  document.getElementById("w-height").value = profile.height || "";
+  document.getElementById("w-weight").value = profile.weight || "";
+  document.getElementById("w-days").value   = profile.days_per_week    || "3";
+  document.getElementById("w-time").value   = profile.time_per_session || "30";
+  document.getElementById("w-equipment").value = profile.equipment  || "";
+  document.getElementById("w-health").value    = profile.health_notes || "";
+  document.getElementById("w-sleep").value  = profile.sleep_hours  || "7";
+  document.getElementById("w-stress").value = profile.stress_level  || "5";
+  document.getElementById("w-caption") && (document.getElementById("w-caption").value = "");
+  // Restore radio selections
+  const radios = {
+    gender:           profile.gender           || "prefer not to say",
+    goal:             profile.goal             || "general_health",
+    level:            profile.level            || "beginner",
+    dietary_pref:     profile.dietary_pref     || "no preference",
+    motivation_style: profile.motivation_style || "encouragement",
+  };
+  Object.entries(radios).forEach(([group, val]) => {
+    document.querySelectorAll(`.radio-opt[data-group="${group}"]`).forEach(el => {
+      el.classList.toggle("selected", el.dataset.val === val);
+    });
+  });
+  document.getElementById("overlay").classList.remove("hidden");
+  wizStep = 1;
+  showWizStep(1);
+}
+
+// ── On page load: auto-login or show wizard ────────────────────────────
+window.addEventListener("load", async () => {
+  checkStatus();
+  setInterval(checkStatus, 30000);
+
+  const savedName = localStorage.getItem("fb_user");
+  if (savedName) {
+    // Try to restore saved profile — skip wizard entirely
+    try {
+      const r = await fetch("/api/profile/" + encodeURIComponent(savedName));
+      if (r.ok) {
+        const d = await r.json();
+        if (d.found) {
+          // Restore profile state
+          profile = { ...profile, ...d.profile };
+          // Close wizard (it's open by default)
+          closeWizard();
+          // Remove welcome card, show returning-user greeting
+          const wc = document.getElementById("wc"); if (wc) wc.remove();
+          addMessage("bot", d.greeting || `Welcome back, ${profile.name}! 💪`, "welcome");
+          return; // don't show wizard
+        }
+      }
+    } catch { /* fall through to wizard */ }
+    // Name in storage but not on server (server restarted fresh) — pre-fill name
+    document.getElementById("w-name").value = savedName;
+  }
+  // First visit or profile not found → wizard auto-shows (it's open by default)
+});
+
+async function checkStatus() {
+  try {
+    const r = await fetch("/api/status");
+    const d = await r.json();
+    const dot = document.getElementById("status-dot");
+    const txt = document.getElementById("status-text");
+    if (d.online) { dot.className="dot on"; txt.textContent="IBM Granite AI"; }
+    else          { dot.className="dot off"; txt.textContent="Offline mode"; }
+  } catch { document.getElementById("status-dot").className="dot"; document.getElementById("status-text").textContent="Server offline"; }
+}
+
+// ── Send ───────────────────────────────────────────────────────────────
+function quickSend(t) { document.getElementById("user-input").value=t; sendMessage(); }
+function handleKey(e) { if (e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,120)+"px"; }
+
+async function sendMessage() {
+  const inp = document.getElementById("user-input");
+  const msg = inp.value.trim();
+  if (!msg || busy) return;
+  const wc = document.getElementById("wc");
+  if (wc) wc.remove();
+  inp.value=""; inp.style.height="auto";
+  addMessage("user", msg);
+  showTyping(true);
+  document.getElementById("send-btn").disabled=true;
+  try {
+    const res  = await fetch("/api/chat", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({message:msg, ...profile})
+    });
+    const data = await res.json();
+    showTyping(false);
+    addMessage("bot", data.error ? "Sorry, something went wrong." : data.response, data.intent);
+  } catch {
+    showTyping(false);
+    addMessage("bot","Could not reach the server. Make sure app.py is running.");
+  }
+  document.getElementById("send-btn").disabled=false;
+  document.getElementById("user-input").focus();
+}
+
+// ── Lightweight Markdown renderer ─────────────────────────────────────
+function renderMarkdown(text) {
+  let html = text
+    // Escape HTML first
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    // Blockquotes
+    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+    // ## Headings
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    // ### Headings
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    // Bold **text**
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic *text*
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Bullet points
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g, (m) => '<ul>' + m + '</ul>')
+    // Double newline = paragraph break
+    .replace(/\n\n/g, '</p><p>')
+    // Single newline = br
+    .replace(/\n/g, '<br>');
+  return '<p>' + html + '</p>';
+}
+
+// ── DOM helpers ────────────────────────────────────────────────────────
+const LABELS = {
+  workout:"💪 Workout Plan", meal:"🥗 Meal Plan", motivation:"🌟 Daily Motivation",
+  habit:"📅 Habit Builder",  checkin:"📊 Progress Report", freeform:"💬 Fitness Buddy",
+  welcome:"👋 Welcome!",     image:"🔍 Image Analysis"
+};
+
+// Intents that warrant a PDF download button — structured plans/reports only
+const PDF_INTENTS = new Set(["workout","meal","habit","checkin"]);
+
+let _msgCounter = 0;
+
+function addMessage(role, text, intent, imgSrc) {
+  const chat   = document.getElementById("chat");
+  const typing = document.getElementById("typing");
+  const div    = document.createElement("div");
+  div.className = "msg " + role;
+  const av = document.createElement("div");
+  av.className = "av";
+  av.textContent = role==="user" ? "🧑" : "🤖";
+  const bub = document.createElement("div");
+  bub.className = "bubble";
+
+  if (role === "bot") {
+    // Intent label badge
+    if (intent && LABELS[intent]) {
+      const lbl = document.createElement("div");
+      lbl.className = "label"; lbl.textContent = LABELS[intent];
+      bub.appendChild(lbl);
+    }
+    // Render Markdown for bot messages
+    const content = document.createElement("div");
+    content.className = "md-content";
+    content.innerHTML = renderMarkdown(text);
+    bub.appendChild(content);
+
+    // PDF button ONLY for structured plans/reports (workout, meal, habit, progress)
+    if (PDF_INTENTS.has(intent)) {
+      const msgId = "msg-" + (++_msgCounter);
+      content.id = msgId;
+      const pdfBtn = document.createElement("button");
+      pdfBtn.className = "pdf-btn";
+      pdfBtn.innerHTML = "⬇️ Save as PDF";
+      pdfBtn.onclick = () => downloadPDF(msgId, intent);
+      bub.appendChild(pdfBtn);
+    }
+  } else {
+    // User bubble — show image preview if provided
+    if (imgSrc) {
+      const img = document.createElement("img");
+      img.src = imgSrc; img.className = "msg-img"; img.alt = "uploaded";
+      bub.appendChild(img);
+    }
+    if (text) {
+      const span = document.createElement("span");
+      span.textContent = text;
+      bub.appendChild(span);
+    }
+  }
+
+  div.appendChild(av); div.appendChild(bub);
+  chat.insertBefore(div, typing);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ── PDF export ────────────────────────────────────────────────────────
+function downloadPDF(contentId, title) {
+  const el = document.getElementById(contentId);
+  if (!el) return;
+
+  // Build plain-text version of the Markdown for PDF
+  const rawText = el.innerText || el.textContent;
+  const lines   = rawText.split('\n').filter(l => l.trim());
+
+  // Use browser print as a clean PDF fallback (works without external libs)
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Fitness Buddy — ${(title||'').replace(/_/g,' ')}</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;max-width:700px;margin:40px auto;color:#1a1a2e;line-height:1.7;font-size:14px}
+      h1{color:#7c3aed;font-size:1.4rem;border-bottom:2px solid #7c3aed;padding-bottom:8px;margin-bottom:20px}
+      h3{color:#7c3aed;font-size:1.05rem;margin-top:22px;margin-bottom:6px}
+      h4{color:#06b6d4;font-size:.95rem;margin-top:16px}
+      ul{padding-left:20px;margin:6px 0}
+      li{margin-bottom:4px}
+      blockquote{border-left:3px solid #7c3aed;margin:12px 0;padding:8px 16px;background:#f5f3ff;border-radius:0 8px 8px 0;font-style:italic;color:#5b21b6}
+      strong{color:#1a1a2e}
+      .footer{margin-top:40px;padding-top:12px;border-top:1px solid #ddd;font-size:11px;color:#888;text-align:center}
+      @media print{body{margin:20px}}
+    </style></head><body>
+    <h1>💪 Fitness Buddy — ${(LABELS[title]||title||'Plan').replace(/[🌟💪🥗📅📊💬👋]/g,'').trim()}</h1>
+    <p style="color:#888;font-size:12px">Generated for: <strong>${profile.name}</strong> | Goal: <strong>${(profile.goal||'').replace(/_/g,' ')}</strong> | Level: <strong>${profile.level||''}</strong></p>
+    ${el.innerHTML}
+    <div class="footer">Generated by Fitness Buddy • Powered by IBM Granite AI • ${new Date().toLocaleDateString()}</div>
+    </body></html>`);
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 400);
+}
+
+// ── Image upload logic ────────────────────────────────────────────────
+let _imageFile = null;
+let _imageDataURL = null;
+
+function toggleImgPanel() {
+  const panel = document.getElementById("img-panel");
+  panel.classList.toggle("open");
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) setImage(file);
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById("img-drop").classList.remove("drag");
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) setImage(file);
+}
+function setImage(file) {
+  _imageFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _imageDataURL = ev.target.result;
+    document.getElementById("img-thumb").src = _imageDataURL;
+    document.getElementById("img-name").textContent = file.name;
+    document.getElementById("img-preview").classList.add("show");
+  };
+  reader.readAsDataURL(file);
+}
+function clearImage() {
+  _imageFile = null; _imageDataURL = null;
+  document.getElementById("img-preview").classList.remove("show");
+  document.getElementById("img-file").value = "";
+  document.getElementById("img-thumb").src = "";
+}
+async function sendImage() {
+  if (!_imageFile) { alert("Please select an image first."); return; }
+  if (busy) return;
+
+  const imgType   = document.getElementById("img-type").value;
+  const caption   = document.getElementById("img-caption").value.trim();
+  const previewSrc = _imageDataURL;
+
+  // Show user message with image preview
+  const wc = document.getElementById("wc"); if(wc) wc.remove();
+  addMessage("user", caption || ("Analyse my " + imgType + " image"), "user", previewSrc);
+  showTyping(true);
+  document.getElementById("send-img-btn").disabled = true;
+
+  const formData = new FormData();
+  formData.append("image",      _imageFile);
+  formData.append("image_type", imgType);
+  formData.append("caption",    caption);
+
+  try {
+    const res  = await fetch("/api/image", { method:"POST", body: formData });
+    const data = await res.json();
+    showTyping(false);
+    addMessage("bot", data.error ? "Sorry, image analysis failed." : data.response, "image");
+  } catch {
+    showTyping(false);
+    addMessage("bot", "Could not reach the server for image analysis.");
+  }
+
+  document.getElementById("send-img-btn").disabled = false;
+  clearImage();
+  // Close image panel after send
+  document.getElementById("img-panel").classList.remove("open");
+}
+
+function showTyping(show) {
+  busy = show;
+  document.getElementById("typing").classList.toggle("show", show);
+  if (show) document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+}
+</script>
+</body>
+</html>

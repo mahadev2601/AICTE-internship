@@ -1,0 +1,7 @@
+# Fitness Buddy — Python dependencies
+# Install with: pip install -r requirements.txt
+
+ibm-watsonx-ai>=1.0.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+flask-cors>=4.0.0

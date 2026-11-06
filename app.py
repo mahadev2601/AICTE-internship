@@ -30,7 +30,12 @@ CORS(app)
 _agent = FitnessBuddy()
 
 # ── Profile persistence ───────────────────────────────────────────────────────
-_PROFILES_FILE = os.path.join(os.path.dirname(__file__), "profiles.json")
+# Use /tmp on cloud platforms (ephemeral but survives the session),
+# or the project directory locally.
+_PROFILES_FILE = os.path.join(
+    os.getenv("PROFILES_DIR", os.path.dirname(os.path.abspath(__file__))),
+    "profiles.json"
+)
 
 
 def _load_all_profiles() -> dict:

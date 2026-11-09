@@ -129,6 +129,20 @@ EXERCISE_CATALOG: list[Exercise] = [
         "regression": "Seated Dumbbell Overhead Press",
         "progression": "Alternating or Arnold Press"
     },
+    {
+        "id": "db_overhead_triceps",
+        "name": "Overhead Dumbbell Triceps Extension",
+        "movement_pattern": "push",
+        "muscle_groups": ["triceps", "shoulders"],
+        "equipment": ["dumbbells"],
+        "difficulty": "beginner",
+        "contraindications": ["shoulder_pain"],
+        "is_low_impact": True,
+        "instructions": "Hold a single dumbbell overhead with both hands, lower behind head by bending elbows, press back up.",
+        "cues": "Keep elbows pointing forward, not flaring wide.",
+        "regression": "Lighter weight or seated on a chair",
+        "progression": "Single-arm dumbbell extension"
+    },
 
     # ── Pull Exercises
     {
@@ -146,7 +160,22 @@ EXERCISE_CATALOG: list[Exercise] = [
         "progression": "Pause at peak contraction for 2 seconds"
     },
     {
+        "id": "db_bicep_curls",
+        "name": "Standing Dumbbell Bicep Hammer Curls",
+        "movement_pattern": "pull",
+        "muscle_groups": ["biceps", "brachialis", "forearms"],
+        "equipment": ["dumbbells"],
+        "difficulty": "beginner",
+        "contraindications": ["wrist_pain"],
+        "is_low_impact": True,
+        "instructions": "Stand tall holding dumbbells at sides, curl weights toward shoulders with palms facing each other, lower slowly.",
+        "cues": "Pin elbows to ribs, avoid swinging torso.",
+        "regression": "Seated Hammer Curls with lighter dumbbells",
+        "progression": "Incline Dumbbell Curl or 3-second negative eccentric"
+    },
+    {
         "id": "door_frame_row",
+
         "name": "Door Frame / Towel Row",
         "movement_pattern": "pull",
         "muscle_groups": ["upper back", "biceps", "forearms"],
@@ -364,6 +393,20 @@ EXERCISE_CATALOG: list[Exercise] = [
         "progression": "Add light resistance band between hands/feet"
     },
     {
+        "id": "db_reverse_lunge",
+        "name": "Dumbbell Step-Back Reverse Lunges",
+        "movement_pattern": "lunge",
+        "muscle_groups": ["glutes", "quads", "hamstrings"],
+        "equipment": ["dumbbells"],
+        "difficulty": "intermediate",
+        "contraindications": ["knee_pain"],
+        "is_low_impact": True,
+        "instructions": "Hold dumbbells at sides, step one leg back and lower rear knee towards floor, drive through front heel.",
+        "cues": "Keep chest tall, reverse lunges place significantly less shear stress on knees.",
+        "regression": "Bodyweight Reverse Lunges",
+        "progression": "Dumbbell Walking Lunges"
+    },
+    {
         "id": "side_plank",
         "name": "Side Plank Hold",
         "movement_pattern": "core",
@@ -377,6 +420,21 @@ EXERCISE_CATALOG: list[Exercise] = [
         "regression": "Kneeling Side Plank (bent bottom knee)",
         "progression": "Side Plank with Hip Dips"
     },
+    {
+        "id": "db_russian_twist",
+        "name": "Dumbbell Seated Russian Twists",
+        "movement_pattern": "core",
+        "muscle_groups": ["obliques", "rectus abdominis", "hip flexors"],
+        "equipment": ["dumbbells"],
+        "difficulty": "intermediate",
+        "contraindications": ["lower_back_pain"],
+        "is_low_impact": True,
+        "instructions": "Sit with knees bent, lean torso back 45 degrees holding one dumbbell with both hands, rotate torso side to side.",
+        "cues": "Rotate from shoulders and ribcage, not just moving arms.",
+        "regression": "Heels on floor without dumbbell",
+        "progression": "Feet elevated off floor in V-sit hold"
+    },
+
 
     # ── Cardio & Conditioning
     {
@@ -704,7 +762,8 @@ def filter_exercises(
     equipment_available: list[str],
     difficulty: str = "beginner",
     contraindications: Optional[list[str]] = None,
-    preferred_pattern: Optional[str] = None
+    preferred_pattern: Optional[str] = None,
+    require_equipment: Optional[str] = None
 ) -> list[Exercise]:
     """Filter catalog to safe, equipment-matching exercises."""
     contra = contraindications or []
@@ -713,6 +772,10 @@ def filter_exercises(
     for ex in EXERCISE_CATALOG:
         # Check contraindications — if any overlap, skip for safety!
         if any(c in contra for c in ex["contraindications"]):
+            continue
+
+        # If specific equipment is required (e.g. dumbbells), prioritize it!
+        if require_equipment and require_equipment not in ex["equipment"]:
             continue
 
         # Check equipment compatibility
@@ -724,6 +787,10 @@ def filter_exercises(
             continue
 
         safe_exercises.append(ex)
+
+    # Fallback: if requiring strict equipment left 0 exercises for this pattern, return compatible ones
+    if require_equipment and not safe_exercises:
+        return filter_exercises(equipment_available, difficulty, contraindications, preferred_pattern, require_equipment=None)
 
     return safe_exercises
 
@@ -742,9 +809,9 @@ def assemble_modular_workout(
     level = getattr(profile, "level", "beginner") or "beginner"
     goal = getattr(profile, "goal", "general_health") or "general_health"
 
-    # Extract dynamic duration from feedback if specified (e.g., "15 min workout")
+    # Extract dynamic duration from feedback (matches "15 min", "15-minute", "15-min", "20 minutes", etc.)
     duration = target_duration or int(getattr(profile, "time_per_session", "30") or "30")
-    dur_match = re.search(r"(\d+)\s*(?:min|minute)", user_feedback.lower())
+    dur_match = re.search(r"(\d+)\s*[-–—]?\s*(?:min|minute|mins)", user_feedback.lower())
     if dur_match:
         try:
             duration = int(dur_match.group(1))
@@ -753,74 +820,112 @@ def assemble_modular_workout(
 
     # Extract equipment & contraindications dynamically
     contra = detect_contraindications(health_notes, user_feedback)
-    equipment = parse_equipment_list(f"{equipment_str} {user_feedback}")
+    fb_lower = user_feedback.lower()
 
-    # Select exercises by balanced movement patterns
-    push_pool = filter_exercises(equipment, level, contra, "push")
-    pull_pool = filter_exercises(equipment, level, contra, "pull")
-    squat_pool = filter_exercises(equipment, level, contra, "squat")
-    hinge_pool = filter_exercises(equipment, level, contra, "hinge")
-    lunge_pool = filter_exercises(equipment, level, contra, "lunge")
-    core_pool = filter_exercises(equipment, level, contra, "core")
-    cardio_pool = filter_exercises(equipment, level, contra, "cardio")
+    # Detect if user specifically requested a certain equipment type (e.g. "only dumbbells")
+    require_eq = None
+    if any(k in fb_lower for k in ["only dumbbell", "dumbbell only", "using dumbbells", "with dumbbells", "only dumbell", "dumbell only", "using only dumb", "using dumbbell", "only with dumbbells"]):
+        require_eq = "dumbbells"
+    elif any(k in fb_lower for k in ["only band", "band only", "using bands", "with bands", "resistance band only"]):
+        require_eq = "resistance_bands"
+    elif any(k in fb_lower for k in ["only bodyweight", "bodyweight only", "no equipment", "without equipment", "no weights"]):
+        require_eq = "bodyweight"
+    elif "dumbbell" in fb_lower and "bodyweight" not in fb_lower:
+        require_eq = "dumbbells"
+
+    if require_eq:
+        equipment = [require_eq]
+        if require_eq != "bodyweight":
+            equipment.append("bodyweight")
+        active_equipment_display = [require_eq]
+    else:
+        equipment = parse_equipment_list(f"{equipment_str} {user_feedback}")
+        active_equipment_display = equipment
+
+    # Select exercises by balanced movement patterns enforcing requested equipment
+    push_pool = filter_exercises(equipment, level, contra, "push", require_equipment=require_eq)
+    pull_pool = filter_exercises(equipment, level, contra, "pull", require_equipment=require_eq)
+    squat_pool = filter_exercises(equipment, level, contra, "squat", require_equipment=require_eq)
+    hinge_pool = filter_exercises(equipment, level, contra, "hinge", require_equipment=require_eq)
+    lunge_pool = filter_exercises(equipment, level, contra, "lunge", require_equipment=require_eq)
+    core_pool = filter_exercises(equipment, level, contra, "core", require_equipment=require_eq)
+    cardio_pool = filter_exercises(equipment, level, contra, "cardio", require_equipment=None)
 
     selected: list[Exercise] = []
 
-    # Assemble core movements safely
-    if push_pool:
-        selected.append(random.choice(push_pool))
-    if pull_pool:
-        selected.append(random.choice(pull_pool))
-
-    # For lower body: if knee pain, prioritize hinges (glute bridge) over squats/lunges!
-    if "knee_pain" in contra:
-        if hinge_pool:
-            selected.append(random.choice(hinge_pool))
-        if [x for x in squat_pool if x["id"] in ("wall_sit", "box_squat")]:
-            safe_squat = [x for x in squat_pool if x["id"] in ("wall_sit", "box_squat")]
-            selected.append(random.choice(safe_squat))
-    else:
+    # Format routine according to requested duration
+    if duration <= 20:
+        # Quick routine: 2 min warm-up, 11 min circuit (3 focused exercises), 2 min cool-down
+        warmups = [
+            "Arm circles & shoulder rolls (1 min)",
+            "Torso twists & light march in place (1 min)",
+        ]
+        cooldowns = [
+            "Hamstring & chest doorway stretch (1 min)",
+            "Child's pose deep breathing (1 min)",
+        ]
+        if push_pool:
+            selected.append(random.choice(push_pool))
+        if pull_pool:
+            selected.append(random.choice(pull_pool))
         lower_options = squat_pool + hinge_pool + lunge_pool
         if lower_options:
             selected.append(random.choice(lower_options))
-
-    if core_pool:
-        selected.append(random.choice(core_pool))
-
-    # Add cardio / conditioning if time allows and goal is weight loss or endurance
-    if duration >= 25 and (goal in ("weight_loss", "endurance") or "cardio" in user_feedback.lower()):
-        if cardio_pool:
-            selected.append(random.choice(cardio_pool))
-
-    # Warm-up routine (5 minutes dynamic mobility)
-    warmups = [
-        "Arm circles & shoulder rolls (1 min)",
-        "Torso twists with gentle reach (1 min)",
-        "Hip openers / leg swings (1 min)",
-    ]
-    if "knee_pain" in contra:
-        warmups.append("Gentle glute bridges (1 min)")
+        elif core_pool:
+            selected.append(random.choice(core_pool))
     else:
-        warmups.append("Light bodyweight air squats or march in place (2 min)")
+        # Standard duration (>= 25 min)
+        if push_pool:
+            selected.append(random.choice(push_pool))
+        if pull_pool:
+            selected.append(random.choice(pull_pool))
 
-    # Cool-down routine (5 minutes static stretches)
-    cooldowns = [
-        "Doorway chest stretch (30s each side)",
-        "Child's pose deep breathing (1 min)",
-        "Hamstring & calf stretch (1 min each side)",
-        "Gentle spinal twist on floor (1 min)",
-    ]
+        if "knee_pain" in contra:
+            if hinge_pool:
+                selected.append(random.choice(hinge_pool))
+            safe_squat = [x for x in squat_pool if x["id"] in ("wall_sit", "box_squat")]
+            if safe_squat:
+                selected.append(random.choice(safe_squat))
+        else:
+            lower_options = squat_pool + hinge_pool + lunge_pool
+            if lower_options:
+                selected.append(random.choice(lower_options))
+
+        if core_pool:
+            selected.append(random.choice(core_pool))
+
+        if duration >= 25 and (goal in ("weight_loss", "endurance") or "cardio" in user_feedback.lower()):
+            if cardio_pool:
+                selected.append(random.choice(cardio_pool))
+
+        warmups = [
+            "Arm circles & shoulder rolls (1 min)",
+            "Torso twists with gentle reach (1 min)",
+            "Hip openers / leg swings (1 min)",
+        ]
+        if "knee_pain" in contra:
+            warmups.append("Gentle glute bridges (1 min)")
+        else:
+            warmups.append("Light bodyweight air squats or march in place (2 min)")
+
+        cooldowns = [
+            "Doorway chest stretch (30s each side)",
+            "Child's pose deep breathing (1 min)",
+            "Hamstring & calf stretch (1 min each side)",
+            "Gentle spinal twist on floor (1 min)",
+        ]
 
     return {
         "title": f"Personalised {goal.replace('_', ' ').title()} Dynamic Workout",
         "duration_minutes": duration,
-        "equipment_used": equipment,
+        "equipment_used": active_equipment_display,
         "active_contraindications": contra,
         "warmup": warmups,
         "exercises": selected,
         "cooldown": cooldowns,
         "health_disclaimer_required": len(contra) > 0 or bool(health_notes),
     }
+
 
 
 def assemble_modular_meal_plan(

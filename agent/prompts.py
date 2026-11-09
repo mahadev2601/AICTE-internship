@@ -73,36 +73,46 @@ def dynamic_workout_prompt(
 
     feedback_notice = f"\nUser's real-time adjustment/request: '{user_feedback}'" if user_feedback else ""
 
+    dur = modular_plan.get("duration_minutes", 30)
+    warmup_time = "2 min" if dur <= 20 else "5 min"
+    cooldown_time = "2 min" if dur <= 20 else "5 min"
+    eq_list = ", ".join(modular_plan.get("equipment_used", ["bodyweight"]))
+
     user_msg = (
         f"{_profile_context(p, rag_context)}\n\n"
-        f"Target Session Duration: {modular_plan.get('duration_minutes', 30)} minutes\n"
-        f"Equipment Used: {', '.join(modular_plan.get('equipment_used', ['bodyweight']))}\n"
-        f"Active Injury Safeguards: {', '.join(modular_plan.get('active_contraindications', [])) or 'None'}{feedback_notice}\n\n"
+        f"⚡ REAL-TIME REQUEST OVERRIDE:\n"
+        f"- Target Session Duration: {dur} minutes (CRITICAL: Use exactly {dur} minutes in your response, NOT the profile default of {p.time_per_session} min)\n"
+        f"- Equipment to Use: {eq_list} (CRITICAL: Every main exercise MUST use {eq_list})\n"
+        f"- User Feedback: '{user_feedback}'\n"
+        f"- Active Injury Safeguards: {', '.join(modular_plan.get('active_contraindications', [])) or 'None'}{feedback_notice}\n\n"
         f"Modular Exercise Selection (grounded in safe catalog):\n{exercises_json}\n\n"
-        f"Generate a **personalised, modular workout plan** in Markdown for {p.name}. "
-        f"Follow this exact structure:\n\n"
-        f"## 💪 Your Personalised {p.goal.replace('_', ' ').title()} Routine\n"
-        f"2 warm sentences acknowledging their goal, {modular_plan.get('duration_minutes', 30)}-min target, and any requested adjustments.\n\n"
+        f"CRITICAL INSTRUCTIONS:\n"
+        f"1. You MUST generate a {dur}-minute routine matching {eq_list}.\n"
+        f"2. You MUST use the exact exercises provided in the modular selection above.\n"
+        f"3. Follow this exact structure:\n\n"
+        f"## 💪 Your Personalised {dur}-Minute {eq_list.title()} Workout\n"
+        f"2 warm sentences acknowledging their goal and confirming their {dur}-minute session with {eq_list}.\n\n"
         f"## 📋 Session Overview\n"
-        f"- **Duration**: ~{modular_plan.get('duration_minutes', 30)} min | **Target Level**: {p.level.title()}\n"
-        f"- **Equipment**: {', '.join(modular_plan.get('equipment_used', ['bodyweight']))}\n"
-        f"- **Focus**: Balanced full-body strength & functional mobility\n\n"
-        f"## 🔥 Dynamic Warm-Up (5 min)\n"
-        + "\n".join(f"- {w}" for w in modular_plan.get("warmup", ["Arm circles (1 min)", "Hip openers (1 min)", "Bodyweight marches (2 min)"])) +
+        f"- **Duration**: ~{dur} min | **Target Level**: {p.level.title()}\n"
+        f"- **Equipment**: {eq_list}\n"
+        f"- **Focus**: High-efficiency strength & functional mobility\n\n"
+        f"## 🔥 Dynamic Warm-Up ({warmup_time})\n"
+        + "\n".join(f"- {w}" for w in modular_plan.get("warmup", ["Arm circles (1 min)", "Hip openers (1 min)"])) +
         f"\n\n## 🏋️ Main Workout Circuit\n"
         f"For EACH exercise in the modular selection above, provide:\n"
         f"- **Exercise**: exact name\n"
-        f"- **Target**: Sets × Reps (recommend progressive overload based on telemetry if available)\n"
-        f"- **Rest**: recommended rest between sets (e.g. 45-60s)\n"
+        f"- **Target**: Sets × Reps ({'2-3 sets × 8-12 reps' if dur <= 20 else '3 sets × 10-12 reps'})\n"
+        f"- **Rest**: recommended rest between sets ({'30-45s' if dur <= 20 else '45-60s'})\n"
         f"- **Form Tip**: 1 actionable technique cue\n"
-        f"- **Safe Modification**: easier variation if fatigued or to protect joints\n\n"
-        f"## 🧊 Cool-Down & Recovery (5 min)\n"
-        + "\n".join(f"- {c}" for c in modular_plan.get("cooldown", ["Chest stretch (1 min)", "Child's pose (1 min)", "Hamstring stretch (1 min)"])) +
+        f"- **Safe Modification**: easier variation\n\n"
+        f"## 🧊 Cool-Down & Recovery ({cooldown_time})\n"
+        + "\n".join(f"- {c}" for c in modular_plan.get("cooldown", ["Chest stretch (1 min)", "Hamstring stretch (1 min)"])) +
         f"\n\n## 📈 Progressive Overload & Pro Tip for {p.name}\n"
-        f"Explain how {p.name} can progressively overload this routine over the next 2-3 weeks (e.g. adding 1-2 reps or increasing time under tension).\n\n"
+        f"Explain how {p.name} can progressively overload this routine over the next 2-3 weeks.\n\n"
         f"> ⚠️ **Medical Disclaimer**: Listen to your body. If any movement causes sharp pain, discontinue immediately. Consult a physician before starting any strenuous exercise program."
     )
     return SYSTEM, user_msg
+
 
 
 def dynamic_meal_prompt(

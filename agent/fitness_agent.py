@@ -209,25 +209,31 @@ class FitnessBuddy:
                 f"- **Modification / Joint Safety**: {ex['regression']}"
             )
 
+        dur = modular["duration_minutes"]
+        warmup_time = "2 min" if dur <= 20 else "5 min"
+        cooldown_time = "2 min" if dur <= 20 else "5 min"
+        eq_str = ", ".join(modular["equipment_used"])
+
         fallback = (
-            f"## 💪 Your Personalised {p.goal.replace('_',' ').title()} Workout\n\n"
-            f"Custom routine prepared for **{p.name}** | Goal: **{p.goal.replace('_',' ').title()}** | Duration: **~{modular['duration_minutes']} min**\n\n"
+            f"## 💪 Your Personalised {dur}-Minute {eq_str.title()} Workout\n\n"
+            f"Custom routine prepared for **{p.name}** | Goal: **{p.goal.replace('_',' ').title()}** | Duration: **~{dur} min**\n\n"
             f"## 📋 Session Overview\n"
-            f"- **Target Schedule**: {p.days_per_week} days/week\n"
-            f"- **Equipment In Use**: {', '.join(modular['equipment_used'])}\n"
+            f"- **Target Duration**: ~{dur} min | **Target Level**: {p.level.title()}\n"
+            f"- **Equipment In Use**: {eq_str}\n"
             f"- **Active Health Considerations**: {p.health_notes or 'None reported'}\n\n"
-            f"## 🔥 Dynamic Warm-Up (5 min)\n"
+            f"## 🔥 Dynamic Warm-Up ({warmup_time})\n"
             + "\n".join(f"- {w}" for w in modular["warmup"]) +
             f"\n\n## 🏋️ Main Workout Circuit\n\n"
             + "\n\n".join(exercises_md) +
-            f"\n\n## 🧊 Cool-Down & Mobility (5 min)\n"
+            f"\n\n## 🧊 Cool-Down & Mobility ({cooldown_time})\n"
             + "\n".join(f"- {c}" for c in modular["cooldown"]) +
             f"\n\n## 📈 Progressive Overload Guidance\n"
             f"- Focus on quality technique first.\n"
-            f"- Once you can hit 12 clean reps for all 3 sets, increase to 14 reps or add a slight pause at peak tension.\n"
+            f"- Once you can hit 12 clean reps for all sets, increase to 14 reps or add a slight pause at peak tension.\n"
             f"- Log your weights and reps after each session to track your progressive overload!"
             + MANDATORY_DISCLAIMER
         )
+
 
         response = generate(self.model, system, user, fallback)
         return SafetyGuard.sanitize_output(response, disclaimer_required=True)

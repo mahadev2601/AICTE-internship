@@ -6,7 +6,7 @@ to reference these plans rather than generating exercises from scratch,
 which eliminates hallucinated exercise names or unsafe rep counts.
 """
 
-from typing import TypedDict
+from typing import TypedDict, Any, Optional
 
 
 class WorkoutPlan(TypedDict):
@@ -110,3 +110,13 @@ def get_plan(goal: str, level: str) -> tuple[str, WorkoutPlan]:
     else:
         key = level if level in PLANS else "beginner"
     return key, PLANS[key]
+
+
+def get_dynamic_workout(profile: Any, user_feedback: str = "", target_duration: Optional[int] = None) -> dict[str, Any]:
+    """
+    Generate a dynamic, modular workout tailored to equipment, injuries, and real-time feedback.
+    Delegates to the modular knowledge bank.
+    """
+    from data.knowledge_bank import assemble_modular_workout
+    return assemble_modular_workout(profile, user_feedback=user_feedback, target_duration=target_duration)
+

@@ -365,11 +365,12 @@ header{
 
   <div class="qa">
     <button class="qb" onclick="quickSend('Show me my workout plan')">🏋️ Workout</button>
+    <button class="qb" onclick="quickSend('Show my progressive overload progress')">📈 Overload Tracker</button>
+    <button class="qb" onclick="quickSend('Give me a 15 min quick workout')">⏱️ 15-Min Quick</button>
     <button class="qb" onclick="quickSend('Show me a meal plan')">🥗 Meal Plan</button>
     <button class="qb" onclick="quickSend('Give me some motivation')">🌟 Motivate</button>
     <button class="qb" onclick="quickSend('Give me habit building tips')">📅 Habits</button>
     <button class="qb" onclick="quickSend('How much water should I drink daily?')">💧 Hydration</button>
-    <button class="qb" onclick="quickSend('How many rest days do I need?')">😴 Recovery</button>
   </div>
 
   <div class="chat" id="chat">
@@ -658,11 +659,13 @@ function renderMarkdown(text) {
 const LABELS = {
   workout:"💪 Workout Plan", meal:"🥗 Meal Plan", motivation:"🌟 Daily Motivation",
   habit:"📅 Habit Builder",  checkin:"📊 Progress Report", freeform:"💬 Fitness Buddy",
-  welcome:"👋 Welcome!",     image:"🔍 Image Analysis"
+  welcome:"👋 Welcome!",     image:"🔍 Image Analysis",  progress:"📈 Overload Tracker",
+  safety_intercept:"🚨 Safety Notice"
 };
 
 // Intents that warrant a PDF download button — structured plans/reports only
-const PDF_INTENTS = new Set(["workout","meal","habit","checkin"]);
+const PDF_INTENTS = new Set(["workout","meal","habit","checkin","progress"]);
+
 
 let _msgCounter = 0;
 

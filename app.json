@@ -1,0 +1,38 @@
+{
+  "name": "fitness-buddy",
+  "description": "Fitness Buddy — AI-powered Health & Fitness Coach powered by IBM Granite. AICTE Internship Problem Statement No. 13.",
+  "repository": "https://github.com/mahadev2601/AICTE-internship",
+  "logo": "https://raw.githubusercontent.com/mahadev2601/AICTE-internship/main/static/index.html",
+  "keywords": ["fitness", "ai", "ibm-granite", "health", "coach", "flask", "watsonx"],
+  "env": {
+    "WATSONX_API_KEY": {
+      "description": "IBM Cloud API Key for watsonx.ai access. Get it from https://cloud.ibm.com/iam/apikeys",
+      "required": true
+    },
+    "WATSONX_PROJECT_ID": {
+      "description": "IBM watsonx.ai Project ID. Get it from https://dataplatform.cloud.ibm.com → your project → Manage → General",
+      "required": true
+    },
+    "WATSONX_URL": {
+      "description": "IBM watsonx.ai service endpoint URL (region-specific)",
+      "value": "https://us-south.ml.cloud.ibm.com",
+      "required": true
+    },
+    "PROFILES_DIR": {
+      "description": "Directory to store user profiles JSON (optional, defaults to app directory)",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "standard-1x"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "stack": "heroku-22"
+}

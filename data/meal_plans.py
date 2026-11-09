@@ -5,7 +5,7 @@ Keeping meal content static prevents the AI from inventing calorie counts,
 macros, or unsafe dietary advice. The agent adds only a short contextual tip.
 """
 
-from typing import TypedDict
+from typing import TypedDict, Any, Optional
 
 
 class MealPlan(TypedDict):
@@ -95,3 +95,13 @@ def get_plan(goal: str) -> tuple[str, MealPlan]:
     """Return (plan_key, plan) for the given goal. Falls back to general_health."""
     key = goal if goal in PLANS else _FALLBACK
     return key, PLANS[key]
+
+
+def get_dynamic_meal_plan(profile: Any, user_feedback: str = "", dietary_pref: Optional[str] = None) -> dict[str, Any]:
+    """
+    Generate a dynamic, modular meal plan aligned with dietary preference and goal.
+    Delegates to the modular knowledge bank.
+    """
+    from data.knowledge_bank import assemble_modular_meal_plan
+    return assemble_modular_meal_plan(profile, user_feedback=user_feedback, dietary_pref=dietary_pref)
+

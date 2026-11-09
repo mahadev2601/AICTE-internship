@@ -1,13 +1,18 @@
-﻿# Secrets & credentials
+# Secrets & credentials
 .env
 
-# User data (personal profiles — never commit)
+# User data (personal profiles & local database)
 profiles.json
+*.db
+*.sqlite
+*.sqlite3
 
 # Python bytecode
 __pycache__/
 *.pyc
 *.pyo
 
-# IDE
+# IDE & test cache
 .vscode/settings.json
+.pytest_cache/
+
